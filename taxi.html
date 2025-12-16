@@ -7,79 +7,74 @@
 </head>
 <body>
 
-<h2>📍 Bekleyen Taksi Çağrıları</h2>
+<h2>📍 Taksi Çağrıları</h2>
 <div id="list"></div>
 
 <script>
 const SUPABASE_URL = "https://cpkefhmqwrpjrwyvudky.supabase.co";
-const SUPABASE_ANON_KEY =
-"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwa2VmaG1xd3JwanJ3eXZ1ZGt5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU4Nzc2NjQsImV4cCI6MjA4MTQ1MzY2NH0.HhODIa99Wic-xYXa9Scg-vj7t-dERDKwskF8shfZfQk";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwa2VmaG1xd3JwanJ3eXZ1ZGt5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU4Nzc2NjQsImV4cCI6MjA4MTQ1MzY2NH0.HhODIa99Wic-xYXa9Scg-vj7t-dERDKwskF8shfZfQk";
 
-function loadRequests() {
-  fetch(`${SUPABASE_URL}/rest/v1/ride_requests?status=eq.waiting&order=created_at.asc`, {
-    headers: {
-      apikey: SUPABASE_ANON_KEY,
-      Authorization: `Bearer ${SUPABASE_ANON_KEY}`
+function fmt(ts){
+  return new Date(ts).toLocaleTimeString("tr-TR",{hour:"2-digit",minute:"2-digit"});
+}
+
+async function load() {
+  const r = await fetch(
+    `${SUPABASE_URL}/rest/v1/ride_requests?select=*,pickup_points(title)&order=created_at.desc&limit=50`,
+    { headers:{apikey:SUPABASE_ANON_KEY,Authorization:`Bearer ${SUPABASE_ANON_KEY}`} }
+  );
+  const data = await r.json();
+  const list = document.getElementById("list");
+  list.innerHTML="";
+
+  data.forEach(x=>{
+    let status = "";
+    if (x.status==="waiting") status="⏳ Bekliyor";
+    if (x.status==="accepted") status=`🚕 Yolda (${x.eta_minutes} dk)`;
+    if (x.status==="cancelled_by_user") status=`❌ Yolcu iptal (${fmt(x.cancelled_at)})`;
+    if (x.status==="cancelled_by_taxi") status=`⚠️ Taksi iptal (${fmt(x.cancelled_at)})`;
+
+    list.innerHTML+=`
+      <div style="border:1px solid #ccc;padding:8px;margin-bottom:8px">
+        <b>${x.pickup_points.title}</b><br>
+        ${status}<br><br>
+        ${
+          x.status==="waiting"
+          ? `
+            <button onclick="accept('${x.id}',3,'${x.phone}')">3 dk</button>
+            <button onclick="accept('${x.id}',5,'${x.phone}')">5 dk</button>
+            <button onclick="accept('${x.id}',7,'${x.phone}')">7 dk</button>
+            <button onclick="accept('${x.id}',10,'${x.phone}')">10 dk</button>
+          `
+          : ""
+        }
+      </div>
+    `;
+  });
+}
+
+async function accept(id,eta,phone){
+  const r = await fetch(
+    `${SUPABASE_URL}/rest/v1/ride_requests?id=eq.${id}&status=eq.waiting`,
+    {
+      method:"PATCH",
+      headers:{
+        apikey:SUPABASE_ANON_KEY,
+        Authorization:`Bearer ${SUPABASE_ANON_KEY}`,
+        "Content-Type":"application/json"
+      },
+      body:JSON.stringify({
+        status:"accepted",
+        eta_minutes:eta,
+        accepted_at:new Date().toISOString()
+      })
     }
-  })
-  .then(r => r.json())
-  .then(data => {
-    const list = document.getElementById("list");
-    list.innerHTML = "";
-
-    data.forEach(r => {
-      list.innerHTML += `
-        <div style="border:1px solid #ccc; padding:10px; margin-bottom:8px;">
-          <b>${r.location_title}</b><br><br>
-          <button onclick="accept('${r.id}',3,'${r.phone}')">3 dk</button>
-          <button onclick="accept('${r.id}',5,'${r.phone}')">5 dk</button>
-          <button onclick="accept('${r.id}',7,'${r.phone}')">7 dk</button>
-          <button onclick="accept('${r.id}',10,'${r.phone}')">10 dk</button>
-        </div>
-      `;
-    });
-  });
+  );
+  if (r.ok) window.location.href=`tel:${phone}`;
 }
 
-function accept(id, eta, phone) {
-  fetch(`${SUPABASE_URL}/rest/v1/ride_requests?id=eq.${id}&status=eq.waiting`, {
-    method: "PATCH",
-    headers: {
-      apikey: SUPABASE_ANON_KEY,
-      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      status: "accepted",
-      eta_minutes: eta,
-      accepted_at: new Date().toISOString()
-    })
-  })
-  .then(res => {
-    if (res.ok) {
-      window.location.href = `tel:${phone}`;
-    }
-  });
-}
-
-function cancelByTaxi(id) {
-  fetch(`${SUPABASE_URL}/rest/v1/ride_requests?id=eq.${id}`, {
-    method: "PATCH",
-    headers: {
-      apikey: SUPABASE_ANON_KEY,
-      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      status: "waiting",
-      eta_minutes: null
-    })
-  });
-}
-
-loadRequests();
-setInterval(loadRequests, 5000);
+load();
+setInterval(load,5000);
 </script>
-
 </body>
 </html>
