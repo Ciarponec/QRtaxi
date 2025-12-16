@@ -1,27 +1,19 @@
-self.addEventListener("install", (event) => {
-  self.skipWaiting();
-});
-
-self.addEventListener("activate", (event) => {
-  event.waitUntil(self.clients.claim());
-});
+self.addEventListener("install", () => self.skipWaiting());
+self.addEventListener("activate", (e) => e.waitUntil(self.clients.claim()));
 
 self.addEventListener("push", (event) => {
   let data = {};
-  try {
-    data = event.data ? event.data.json() : {};
-  } catch (e) {}
+  try { data = event.data ? event.data.json() : {}; } catch {}
 
   const title = data.title || "QR Taksi";
-  const body = data.body || "Yeni çağrı var";
-  const url = data.url || "./taxi.html";
+  const body  = data.body  || "Yeni çağrı var";
+  const url   = data.url   || "./taxi.html";
 
   event.waitUntil(
     self.registration.showNotification(title, {
       body,
       data: { url },
-      vibrate: [100, 50, 100],
-      badge: undefined
+      vibrate: [100, 50, 100]
     })
   );
 });
@@ -31,13 +23,10 @@ self.addEventListener("notificationclick", (event) => {
   const url = event.notification.data?.url || "./taxi.html";
 
   event.waitUntil((async () => {
-    const allClients = await clients.matchAll({ type: "window", includeUncontrolled: true });
-    for (const c of allClients) {
-      if (c.url.includes("taxi.html")) {
-        await c.focus();
-        return;
-      }
+    const clientsArr = await clients.matchAll({ type: "window", includeUncontrolled: true });
+    for (const c of clientsArr) {
+      if (c.url.includes("taxi.html")) return c.focus();
     }
-    await clients.openWindow(url);
+    return clients.openWindow(url);
   })());
 });
