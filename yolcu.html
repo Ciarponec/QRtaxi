@@ -8,130 +8,118 @@
 <body>
 
 <h2>🚕 Taksi Çağır</h2>
+<div id="pointInfo"></div>
 
-<div id="stepCreate">
-  <p>
-    Telefon numaranız yalnızca bu çağrı için taksiyle paylaşılır.
-  </p>
-  <input
-    type="tel"
-    id="phone"
-    placeholder="05xxxxxxxxx"
-    style="font-size:18px; padding:8px; width:100%;"
-  />
+<div id="createBox">
+  <p>Telefon numaranız yalnızca bu çağrı için paylaşılır.</p>
+  <input id="phone" type="tel" placeholder="05xxxxxxxxx" style="width:100%;padding:8px;font-size:16px;">
   <br><br>
-  <button onclick="createRequest()" style="font-size:18px;">
-    Taksi Çağır
-  </button>
+  <button onclick="createRequest()">Taksi Çağır</button>
 </div>
 
-<div id="statusBox" style="display:none; margin-top:20px;"></div>
-
-<button
-  id="cancelBtn"
-  onclick="cancelByUser()"
-  style="display:none; margin-top:10px;"
->
-  ❌ İptal Et
-</button>
+<div id="statusBox" style="margin-top:20px;"></div>
+<button id="cancelBtn" onclick="cancelByUser()" style="display:none;">❌ İptal Et</button>
 
 <script>
 const SUPABASE_URL = "https://cpkefhmqwrpjrwyvudky.supabase.co";
-const SUPABASE_ANON_KEY =
-"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwa2VmaG1xd3JwanJ3eXZ1ZGt5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU4Nzc2NjQsImV4cCI6MjA4MTQ1MzY2NH0.HhODIa99Wic-xYXa9Scg-vj7t-dERDKwskF8shfZfQk";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwa2VmaG1xd3JwanJ3eXZ1ZGt5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU4Nzc2NjQsImV4cCI6MjA4MTQ1MzY2NH0.HhODIa99Wic-xYXa9Scg-vj7t-dERDKwskF8shfZfQk";
 
 const params = new URLSearchParams(window.location.search);
-const LOCATION_ID = params.get("loc") || "unknown";
-const LOCATION_TITLE = LOCATION_ID;
+const CODE = params.get("code");
 
+let pickupPoint = null;
 let requestId = null;
 let poller = null;
 
-function createRequest() {
-  const phone = document.getElementById("phone").value.trim();
-  if (!phone) {
-    alert("Telefon numarası gerekli");
+function fmt(ts) {
+  return new Date(ts).toLocaleTimeString("tr-TR",{hour:"2-digit",minute:"2-digit"});
+}
+
+async function loadPickupPoint() {
+  const r = await fetch(
+    `${SUPABASE_URL}/rest/v1/pickup_points?code=eq.${CODE}&select=id,title,taxi_stop_id`,
+    { headers:{apikey:SUPABASE_ANON_KEY,Authorization:`Bearer ${SUPABASE_ANON_KEY}`} }
+  );
+  const d = await r.json();
+  if (!d.length) {
+    document.body.innerHTML = "❌ Geçersiz QR";
     return;
   }
+  pickupPoint = d[0];
+  document.getElementById("pointInfo").innerHTML =
+    `<b>📍 ${pickupPoint.title}</b>`;
+}
 
-  if (!confirm(`Taksi çağrısı gönderilecek.\nTelefon: ${phone}`)) return;
+async function createRequest() {
+  const phone = document.getElementById("phone").value.trim();
+  if (!phone) return alert("Telefon gerekli");
 
-  fetch(`${SUPABASE_URL}/rest/v1/ride_requests`, {
-    method: "POST",
-    headers: {
-      apikey: SUPABASE_ANON_KEY,
-      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-      "Content-Type": "application/json",
-      Prefer: "return=representation"
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/ride_requests`, {
+    method:"POST",
+    headers:{
+      apikey:SUPABASE_ANON_KEY,
+      Authorization:`Bearer ${SUPABASE_ANON_KEY}`,
+      "Content-Type":"application/json",
+      Prefer:"return=representation"
     },
-    body: JSON.stringify({
+    body:JSON.stringify({
+      pickup_point_id: pickupPoint.id,
       phone,
-      location_id: LOCATION_ID,
-      location_title: LOCATION_TITLE,
-      status: "waiting"
-    })
-  })
-  .then(r => r.json())
-  .then(d => {
-    requestId = d[0].id;
-    document.getElementById("stepCreate").style.display = "none";
-    document.getElementById("statusBox").style.display = "block";
-    document.getElementById("cancelBtn").style.display = "block";
-    pollStatus();
-    poller = setInterval(pollStatus, 5000);
-  });
-}
-
-function pollStatus() {
-  fetch(`${SUPABASE_URL}/rest/v1/ride_requests?id=eq.${requestId}`, {
-    headers: {
-      apikey: SUPABASE_ANON_KEY,
-      Authorization: `Bearer ${SUPABASE_ANON_KEY}`
-    }
-  })
-  .then(r => r.json())
-  .then(d => {
-    if (!d.length) return;
-    const r = d[0];
-    const box = document.getElementById("statusBox");
-
-    if (r.status === "waiting") {
-      box.innerText = "⏳ Taksi bekleniyor";
-    }
-
-    if (r.status === "accepted") {
-      box.innerText = `🚕 Taksi yolda – ${r.eta_minutes} dk`;
-    }
-
-    if (r.status === "cancelled_by_taxi") {
-      box.innerText = "⚠️ Taksi iptal etti, tekrar taksi aranıyor";
-    }
-
-    if (r.status === "cancelled_by_user") {
-      box.innerText = "❌ Çağrı iptal edildi";
-      document.getElementById("cancelBtn").style.display = "none";
-      clearInterval(poller);
-    }
-  });
-}
-
-function cancelByUser() {
-  if (!confirm("Taksi çağrısını iptal etmek istiyor musunuz?")) return;
-
-  fetch(`${SUPABASE_URL}/rest/v1/ride_requests?id=eq.${requestId}`, {
-    method: "PATCH",
-    headers: {
-      apikey: SUPABASE_ANON_KEY,
-      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      status: "cancelled_by_user",
-      cancelled_at: new Date().toISOString()
+      status:"waiting"
     })
   });
+  const d = await r.json();
+  requestId = d[0].id;
+
+  document.getElementById("createBox").style.display="none";
+  document.getElementById("cancelBtn").style.display="block";
+
+  pollStatus();
+  poller = setInterval(pollStatus,5000);
 }
+
+async function pollStatus() {
+  const r = await fetch(
+    `${SUPABASE_URL}/rest/v1/ride_requests?id=eq.${requestId}`,
+    { headers:{apikey:SUPABASE_ANON_KEY,Authorization:`Bearer ${SUPABASE_ANON_KEY}`} }
+  );
+  const d = await r.json();
+  if (!d.length) return;
+
+  const x = d[0];
+  const box = document.getElementById("statusBox");
+
+  if (x.status==="waiting") box.innerText="⏳ Taksi bekleniyor";
+  if (x.status==="accepted") box.innerText=`🚕 Taksi yolda – ${x.eta_minutes} dk`;
+  if (x.status==="cancelled_by_taxi")
+    box.innerText=`⚠️ Taksi iptal etti (${fmt(x.cancelled_at)}), tekrar aranıyor`;
+  if (x.status==="cancelled_by_user") {
+    box.innerText=`❌ Çağrı iptal edildi (${fmt(x.cancelled_at)})`;
+    clearInterval(poller);
+  }
+}
+
+async function cancelByUser() {
+  if (!confirm("Çağrı iptal edilsin mi?")) return;
+  await fetch(
+    `${SUPABASE_URL}/rest/v1/ride_requests?id=eq.${requestId}`,
+    {
+      method:"PATCH",
+      headers:{
+        apikey:SUPABASE_ANON_KEY,
+        Authorization:`Bearer ${SUPABASE_ANON_KEY}`,
+        "Content-Type":"application/json"
+      },
+      body:JSON.stringify({
+        status:"cancelled_by_user",
+        cancelled_by:"user",
+        cancelled_at:new Date().toISOString()
+      })
+    }
+  );
+}
+
+loadPickupPoint();
 </script>
-
 </body>
 </html>
