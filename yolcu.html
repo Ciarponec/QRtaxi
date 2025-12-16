@@ -1,125 +1,145 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="tr">
 <head>
-  <meta charset="UTF-8" />
-  <title>Taksi Çağır</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>QR Taksi – Yolcu</title>
+
+  <style>
+    body{
+      margin:0;
+      min-height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:#f5f6f7;
+      font-family:system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    .card{
+      width:min(420px, 92vw);
+      background:#fff;
+      border-radius:18px;
+      padding:22px;
+      box-shadow:0 12px 30px rgba(0,0,0,.12);
+      text-align:center;
+    }
+    h1{margin:0 0 6px;font-size:20px}
+    .muted{color:#666;font-size:13px}
+    .big{font-size:18px;font-weight:600;margin:16px 0}
+    button{
+      width:100%;
+      padding:14px;
+      border:0;
+      border-radius:14px;
+      font-size:16px;
+      cursor:pointer;
+    }
+    button.primary{background:#111;color:#fff}
+    button.danger{background:#e53935;color:#fff}
+    button:disabled{opacity:.5;cursor:not-allowed}
+    .spacer{height:12px}
+    .status{margin-top:14px;font-size:14px}
+  </style>
 </head>
 <body>
 
-<h2>🚕 Taksi Çağır</h2>
-<div id="pointInfo"></div>
+<div class="card">
+  <h1>🚕 QR Taksi</h1>
+  <div class="muted">Bulunduğun noktadan taksi çağır</div>
 
-<div id="createBox">
-  <p>Telefon numaranız yalnızca bu çağrı için paylaşılır.</p>
-  <input id="phone" type="tel" placeholder="05xxxxxxxxx" style="width:100%;padding:8px;font-size:16px;">
-  <br><br>
-  <button onclick="createRequest()">Taksi Çağır</button>
+  <div id="locationBox" class="big">Lokasyon: —</div>
+
+  <button id="callBtn" class="primary" onclick="callTaxi()" disabled>
+    Taksi Çağır
+  </button>
+
+  <div class="spacer"></div>
+
+  <button id="cancelBtn" class="danger" onclick="cancelCall()" disabled>
+    İptal Et
+  </button>
+
+  <div id="status" class="status muted"></div>
 </div>
 
-<div id="statusBox" style="margin-top:20px;"></div>
-<button id="cancelBtn" onclick="cancelByUser()" style="display:none;">❌ İptal Et</button>
-
 <script>
-const SUPABASE_URL = "https://cpkefhmqwrpjrwyvudky.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwa2VmaG1xd3JwanJ3eXZ1ZGt5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU4Nzc2NjQsImV4cCI6MjA4MTQ1MzY2NH0.HhODIa99Wic-xYXa9Scg-vj7t-dERDKwskF8shfZfQk";
+  const SUPABASE_URL = "https://cpkefhmqwrpjrwyvudky.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwa2VmaG1xd3JwanJ3eXZ1ZGt5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU4Nzc2NjQsImV4cCI6MjA4MTQ1MzY2NH0.HhODIa99Wic-xYXa9Scg-vj7t-dERDKwskF8shfZfQk";
 
-const params = new URLSearchParams(window.location.search);
-const CODE = params.get("code");
+  const params = new URLSearchParams(location.search);
+  const locationId = params.get("location");
 
-let pickupPoint = null;
-let requestId = null;
-let poller = null;
+  const callBtn = document.getElementById("callBtn");
+  const cancelBtn = document.getElementById("cancelBtn");
+  const statusBox = document.getElementById("status");
+  const locationBox = document.getElementById("locationBox");
 
-function fmt(ts) {
-  return new Date(ts).toLocaleTimeString("tr-TR",{hour:"2-digit",minute:"2-digit"});
-}
+  let rideId = null;
 
-async function loadPickupPoint() {
-  const r = await fetch(
-    `${SUPABASE_URL}/rest/v1/pickup_points?code=eq.${CODE}&select=id,title,taxi_stop_id`,
-    { headers:{apikey:SUPABASE_ANON_KEY,Authorization:`Bearer ${SUPABASE_ANON_KEY}`} }
-  );
-  const d = await r.json();
-  if (!d.length) {
-    document.body.innerHTML = "❌ Geçersiz QR";
-    return;
+  if (!locationId) {
+    locationBox.textContent = "Lokasyon bulunamadı";
+    statusBox.textContent = "QR kod geçersiz. Lütfen doğru QR kodu tarat.";
+  } else {
+    locationBox.textContent = "Lokasyon: " + locationId;
+    callBtn.disabled = false;
   }
-  pickupPoint = d[0];
-  document.getElementById("pointInfo").innerHTML =
-    `<b>📍 ${pickupPoint.title}</b>`;
-}
 
-async function createRequest() {
-  const phone = document.getElementById("phone").value.trim();
-  if (!phone) return alert("Telefon gerekli");
-
-  const r = await fetch(`${SUPABASE_URL}/rest/v1/ride_requests`, {
-    method:"POST",
-    headers:{
-      apikey:SUPABASE_ANON_KEY,
-      Authorization:`Bearer ${SUPABASE_ANON_KEY}`,
-      "Content-Type":"application/json",
-      Prefer:"return=representation"
-    },
-    body:JSON.stringify({
-      pickup_point_id: pickupPoint.id,
-      phone,
-      status:"waiting"
-    })
-  });
-  const d = await r.json();
-  requestId = d[0].id;
-
-  document.getElementById("createBox").style.display="none";
-  document.getElementById("cancelBtn").style.display="block";
-
-  pollStatus();
-  poller = setInterval(pollStatus,5000);
-}
-
-async function pollStatus() {
-  const r = await fetch(
-    `${SUPABASE_URL}/rest/v1/ride_requests?id=eq.${requestId}`,
-    { headers:{apikey:SUPABASE_ANON_KEY,Authorization:`Bearer ${SUPABASE_ANON_KEY}`} }
-  );
-  const d = await r.json();
-  if (!d.length) return;
-
-  const x = d[0];
-  const box = document.getElementById("statusBox");
-
-  if (x.status==="waiting") box.innerText="⏳ Taksi bekleniyor";
-  if (x.status==="accepted") box.innerText=`🚕 Taksi yolda – ${x.eta_minutes} dk`;
-  if (x.status==="cancelled_by_taxi")
-    box.innerText=`⚠️ Taksi iptal etti (${fmt(x.cancelled_at)}), tekrar aranıyor`;
-  if (x.status==="cancelled_by_user") {
-    box.innerText=`❌ Çağrı iptal edildi (${fmt(x.cancelled_at)})`;
-    clearInterval(poller);
+  function headers() {
+    return {
+      "apikey": SUPABASE_ANON_KEY,
+      "Authorization": "Bearer " + SUPABASE_ANON_KEY,
+      "Content-Type": "application/json"
+    };
   }
-}
 
-async function cancelByUser() {
-  if (!confirm("Çağrı iptal edilsin mi?")) return;
-  await fetch(
-    `${SUPABASE_URL}/rest/v1/ride_requests?id=eq.${requestId}`,
-    {
-      method:"PATCH",
-      headers:{
-        apikey:SUPABASE_ANON_KEY,
-        Authorization:`Bearer ${SUPABASE_ANON_KEY}`,
-        "Content-Type":"application/json"
-      },
-      body:JSON.stringify({
-        status:"cancelled_by_user",
-        cancelled_by:"user",
-        cancelled_at:new Date().toISOString()
-      })
+  async function callTaxi() {
+    callBtn.disabled = true;
+    statusBox.textContent = "Taksi çağrılıyor…";
+
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/ride_requests`,
+      {
+        method: "POST",
+        headers: headers(),
+        body: JSON.stringify({
+          location_id: locationId,     // 🔒 NULL YOK
+          status: "waiting"
+        })
+      }
+    );
+
+    if (!res.ok) {
+      statusBox.textContent = "Bir hata oluştu.";
+      callBtn.disabled = false;
+      return;
     }
-  );
-}
 
-loadPickupPoint();
+    const data = await res.json();
+    rideId = data[0].id;
+
+    statusBox.textContent = "Taksi çağrıldı. Bekleniyor…";
+    cancelBtn.disabled = false;
+  }
+
+  async function cancelCall() {
+    if (!rideId) return;
+
+    cancelBtn.disabled = true;
+
+    await fetch(
+      `${SUPABASE_URL}/rest/v1/ride_requests?id=eq.${rideId}`,
+      {
+        method: "PATCH",
+        headers: headers(),
+        body: JSON.stringify({
+          status: "cancelled_by_user"
+        })
+      }
+    );
+
+    statusBox.textContent = "Çağrı iptal edildi.";
+  }
 </script>
+
 </body>
 </html>
