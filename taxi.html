@@ -1,103 +1,84 @@
 <!doctype html>
 <html lang="tr">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>QR Taksi – Taksici</title>
+
   <link rel="manifest" href="./manifest.json">
-  <meta name="theme-color" content="#111111" />
+  <meta name="theme-color" content="#111111"/>
+
   <style>
-    body{
-      margin:0; font-family: Arial, sans-serif;
-      min-height:100vh; display:flex; align-items:center; justify-content:center;
-      background:#f6f6f6;
-    }
-    .card{
-      background:#fff; width:min(520px, 92vw);
-      border-radius:16px; padding:18px;
-      box-shadow:0 10px 30px rgba(0,0,0,0.12);
-    }
-    h1{ font-size:18px; margin:0 0 10px; }
-    .muted{ color:#666; font-size:12px; line-height:1.4; }
-    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-    button{
-      padding:10px 12px; border:0; border-radius:12px;
-      background:#111; color:#fff; cursor:pointer;
-    }
-    button.secondary{ background:#eee; color:#111; }
-    button:disabled{ opacity:.55; cursor:not-allowed; }
-    .pill{
-      display:inline-block; padding:6px 10px; border-radius:999px;
-      font-size:12px; background:#eee;
-    }
-    .section{ margin-top:14px; padding-top:14px; border-top:1px solid #eee; }
-    .stops{ margin-top:8px; display:grid; gap:8px; }
-    .stop{
-      display:flex; gap:10px; align-items:center;
-      padding:10px; border:1px solid #eee; border-radius:12px;
-      background:#fafafa;
-    }
-    .warn{ background:#fff5e6; border:1px solid #ffd59a; padding:10px; border-radius:12px; }
-    code{ background:#f1f1f1; padding:2px 6px; border-radius:6px; }
+    body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#f6f6f6;font-family:Arial,sans-serif}
+    .card{width:min(560px,92vw);background:#fff;border-radius:16px;padding:18px;box-shadow:0 10px 30px rgba(0,0,0,.12)}
+    h1{margin:0 0 10px;font-size:18px}
+    .muted{color:#666;font-size:12px;line-height:1.4}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .pill{display:inline-block;padding:6px 10px;border-radius:999px;font-size:12px;background:#eee}
+    button{padding:10px 12px;border:0;border-radius:12px;background:#111;color:#fff;cursor:pointer}
+    button.secondary{background:#eee;color:#111}
+    button:disabled{opacity:.55;cursor:not-allowed}
+    .section{margin-top:14px;padding-top:14px;border-top:1px solid #eee}
+    .warn{background:#fff5e6;border:1px solid #ffd59a;padding:10px;border-radius:12px}
+    .stops{margin-top:8px;display:grid;gap:8px}
+    .stop{display:flex;gap:10px;align-items:center;padding:10px;border:1px solid #eee;border-radius:12px;background:#fafafa}
+    code{background:#f1f1f1;padding:2px 6px;border-radius:6px}
   </style>
 </head>
 <body>
-  <div class="card">
-    <h1>🚕 QR Taksi – Taksici Bildirimleri</h1>
-    <div class="muted">
-      Bu sayfa bildirim izni alır ve seçtiğin durakların lokasyonlarından çağrı geldiğinde telefonuna bildirim düşer.
-      <br><br>
-      <b>iPhone:</b> Bildirim için bu sayfayı <b>Ana Ekrana Ekle</b>men gerekir (iOS 16.4+).
+<div class="card">
+  <h1>🚕 QR Taksi – Taksici Bildirimleri</h1>
+  <div class="muted">
+    Seçtiğin durakların lokasyonlarından çağrı gelince telefonuna bildirim düşer.
+    <br><br>
+    <b>iPhone:</b> Bildirim için bu sayfayı <b>Ana Ekrana Ekle</b> (iOS 16.4+) ve ana ekrandan aç.
+  </div>
+
+  <div class="section">
+    <div class="row">
+      <span id="statusPill" class="pill">Durum: bilinmiyor</span>
+      <span id="platformPill" class="pill"></span>
     </div>
 
-    <div class="section">
-      <div class="row">
-        <span id="statusPill" class="pill">Durum: bilinmiyor</span>
-        <span id="platformPill" class="pill"></span>
-      </div>
-
-      <div id="iosHint" class="warn" style="display:none; margin-top:10px;">
-        <b>iPhone tespiti:</b> Bildirim için şu adımları yap:
-        <ol class="muted" style="margin:8px 0 0 18px;">
-          <li>Safari’de <b>Paylaş</b> (kare + ok) butonuna bas</li>
-          <li><b>Ana Ekrana Ekle</b> seç</li>
-          <li>Ana ekrandan açıp <b>Bildirimlere izin ver</b></li>
-        </ol>
-      </div>
-
-      <div class="row" style="margin-top:12px;">
-        <button id="btnEnable" onclick="enableNotifications()">Bildirimlere izin ver</button>
-        <button class="secondary" onclick="refresh()">Yenile</button>
-      </div>
-
-      <div class="row" style="margin-top:10px;">
-        <button id="btnMute" class="secondary" onclick="setActive(false)" disabled>🔕 Mola (bildirim kapat)</button>
-        <button id="btnUnmute" onclick="setActive(true)" disabled>🔔 Bildirimleri aç</button>
-      </div>
+    <div id="iosHint" class="warn" style="display:none; margin-top:10px;">
+      <b>iPhone tespiti:</b> Bildirim için:
+      <ol class="muted" style="margin:8px 0 0 18px;">
+        <li>Safari’de <b>Paylaş</b> (kare + ok)</li>
+        <li><b>Ana Ekrana Ekle</b></li>
+        <li>Ana ekrandan açıp <b>Bildirimlere izin ver</b></li>
+      </ol>
     </div>
 
-    <div class="section">
-      <b>Durak seçimi (çoklu)</b>
-      <div class="muted">Seçtiğin duraklara bağlı lokasyonlardan bildirim alırsın.</div>
-      <div id="stopsBox" class="stops"></div>
-      <div class="row" style="margin-top:10px;">
-        <button id="btnSaveStops" onclick="saveStops()" disabled>Durakları Kaydet</button>
-      </div>
+    <div class="row" style="margin-top:12px;">
+      <button id="btnEnable" onclick="enableNotifications()">Bildirimlere izin ver</button>
+      <button class="secondary" onclick="refreshAll()">Yenile</button>
     </div>
 
-    <div class="section">
-      <div class="muted">
-        Teknik not: Bu cihaz kimliği: <code id="clientIdBox"></code>
-      </div>
+    <div class="row" style="margin-top:10px;">
+      <button id="btnMute" class="secondary" onclick="setActive(false)" disabled>🔕 Mola (bildirim kapat)</button>
+      <button id="btnUnmute" onclick="setActive(true)" disabled>🔔 Bildirimleri aç</button>
     </div>
   </div>
+
+  <div class="section">
+    <b>Durak seçimi (çoklu)</b>
+    <div class="muted">Seçtiğin duraklara bağlı lokasyonlardan bildirim alırsın.</div>
+    <div id="stopsBox" class="stops"></div>
+    <div class="row" style="margin-top:10px;">
+      <button id="btnSaveStops" onclick="saveStops()" disabled>Durakları Kaydet</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="muted">Cihaz kimliği: <code id="clientIdBox"></code></div>
+  </div>
+</div>
 
 <script>
   const SUPABASE_URL = "https://cpkefhmqwrpjrwyvudky.supabase.co";
   const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwa2VmaG1xd3JwanJ3eXZ1ZGt5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU4Nzc2NjQsImV4cCI6MjA4MTQ1MzY2NH0.HhODIa99Wic-xYXa9Scg-vj7t-dERDKwskF8shfZfQk";
 
-  // ✅ BURAYA KENDİ VAPID PUBLIC KEY’İNİ KOYACAKSIN
-  const VAPID_PUBLIC_KEY = "PASTE_YOUR_VAPID_PUBLIC_KEY_HERE";
+  const VAPID_PUBLIC_KEY = "BO4HF6_6di343mHRPXQZLOwts92dIwLoVI_aDVKYJwv6ZdyCdxxU4KqNqeP_qO7ZtzRkHrHDx3sHp3D_WYP42dQ";
 
   const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
   const isStandalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone;
@@ -108,19 +89,15 @@
     localStorage.setItem("qrtaxi_client_id", clientId);
   }
   document.getElementById("clientIdBox").textContent = clientId;
-
-  const platformPill = document.getElementById("platformPill");
-  platformPill.textContent = isIOS ? "Platform: iPhone/iOS" : "Platform: Android/Diğer";
-
-  if (isIOS && !isStandalone) {
-    document.getElementById("iosHint").style.display = "block";
-  }
+  document.getElementById("platformPill").textContent = isIOS ? "Platform: iPhone/iOS" : "Platform: Android/Diğer";
+  if (isIOS && !isStandalone) document.getElementById("iosHint").style.display = "block";
 
   function headers(json=false){
     const h = { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` };
     if (json) h["Content-Type"] = "application/json";
     return h;
   }
+  function setStatus(t){ document.getElementById("statusPill").textContent = "Durum: " + t; }
 
   function urlBase64ToUint8Array(base64String) {
     const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -131,23 +108,12 @@
     return outputArray;
   }
 
-  function setStatus(text){
-    document.getElementById("statusPill").textContent = "Durum: " + text;
-  }
-
-  async function refresh(){
-    await loadStops();
-    await loadMySubscription();
-    await updatePermissionUI();
-  }
-
   async function updatePermissionUI(){
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-      setStatus("Bu tarayıcı Push desteklemiyor");
+      setStatus("Push desteklenmiyor");
       document.getElementById("btnEnable").disabled = true;
       return;
     }
-
     const perm = Notification.permission;
     if (perm === "granted") {
       setStatus("Bildirim izni verildi");
@@ -169,12 +135,8 @@
       alert("iPhone’da bildirim için önce Ana Ekrana Ekle yapıp oradan açmalısın.");
       return;
     }
-
     const perm = await Notification.requestPermission();
-    if (perm !== "granted") {
-      await updatePermissionUI();
-      return;
-    }
+    if (perm !== "granted") { await updatePermissionUI(); return; }
 
     const reg = await navigator.serviceWorker.register("./service-worker.js", { scope: "./" });
 
@@ -184,95 +146,40 @@
     });
 
     await upsertSubscription(sub);
-
-    await updatePermissionUI();
-    await loadMySubscription();
-    alert("Bildirimler aktif. Şimdi durakları seçip kaydet.");
+    await refreshAll();
+    alert("Bildirimler aktif ✅ Durakları seçip kaydet.");
   }
 
   async function upsertSubscription(sub){
     const data = sub.toJSON();
-
-    // upsert by endpoint (unique)
     const payload = {
-      client_id: clientId,
       endpoint: data.endpoint,
       p256dh: data.keys.p256dh,
       auth: data.keys.auth,
       is_active: true,
-      stop_ids: []
+      last_seen_at: new Date().toISOString()
     };
 
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/taxi_push_subscriptions?on_conflict=endpoint`, {
-      method: "POST",
-      headers: { ...headers(true), Prefer: "resolution=merge-duplicates,return=representation" },
-      body: JSON.stringify(payload)
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/taxi_push_subscriptions?on_conflict=endpoint`,{
+      method:"POST",
+      headers:{...headers(true), Prefer:"resolution=merge-duplicates,return=representation"},
+      body:JSON.stringify(payload)
     });
 
-    if (!r.ok) {
-      const t = await r.text();
-      alert("Abonelik kaydı başarısız: " + t);
-    }
-  }
-
-  async function loadMySubscription(){
-    // client_id ile çekiyoruz
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/taxi_push_subscriptions?client_id=eq.${encodeURIComponent(clientId)}&select=*`, {
-      headers: headers(false)
-    });
-    const rows = await r.json();
-    const row = rows[0];
-
-    const btnMute = document.getElementById("btnMute");
-    const btnUnmute = document.getElementById("btnUnmute");
-
-    if (!row) {
-      btnMute.disabled = true;
-      btnUnmute.disabled = true;
-      return;
-    }
-
-    if (row.is_active) {
-      btnMute.disabled = false;
-      btnUnmute.disabled = true;
-    } else {
-      btnMute.disabled = true;
-      btnUnmute.disabled = false;
-    }
-
-    // stop_ids seçimini UI'ye yansıt
-    const selected = new Set((row.stop_ids || []).map(String));
-    document.querySelectorAll("input[data-stop]").forEach(chk => {
-      chk.checked = selected.has(chk.value);
-    });
-  }
-
-  async function setActive(active){
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/taxi_push_subscriptions?client_id=eq.${encodeURIComponent(clientId)}`, {
-      method: "PATCH",
-      headers: headers(true),
-      body: JSON.stringify({ is_active: active, last_seen_at: new Date().toISOString() })
-    });
-    if (!r.ok) {
-      alert("Güncellenemedi (mola): " + await r.text());
-      return;
-    }
-    await loadMySubscription();
+    if(!r.ok) alert("Abonelik kaydı başarısız: " + await r.text());
   }
 
   async function loadStops(){
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/taxi_stops?is_active=neq.false&select=id,name&order=created_at.asc`, {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/taxi_stops?is_active=neq.false&select=id,name&order=created_at.asc`,{
       headers: headers(false)
     });
     const rows = await r.json();
-
     const box = document.getElementById("stopsBox");
     box.innerHTML = "";
-
-    rows.forEach(s => {
-      const div = document.createElement("div");
-      div.className = "stop";
-      div.innerHTML = `
+    rows.forEach(s=>{
+      const div=document.createElement("div");
+      div.className="stop";
+      div.innerHTML=`
         <input type="checkbox" data-stop="1" value="${s.id}" id="stop_${s.id}">
         <label for="stop_${s.id}"><b>${s.name}</b></label>
       `;
@@ -280,28 +187,94 @@
     });
   }
 
-  async function saveStops(){
-    // seçili duraklar
-    const selected = Array.from(document.querySelectorAll("input[data-stop]:checked")).map(x => x.value);
+  async function loadMySelectedStops(){
+    // endpoint bazlı subscription id bul
+    const subRow = await getMySubscriptionRow();
+    if(!subRow) return;
 
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/taxi_push_subscriptions?client_id=eq.${encodeURIComponent(clientId)}`, {
-      method: "PATCH",
-      headers: headers(true),
-      body: JSON.stringify({ stop_ids: selected, last_seen_at: new Date().toISOString() })
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/taxi_push_stops?subscription_id=eq.${subRow.id}&select=taxi_stop_id`,{
+      headers: headers(false)
+    });
+    const rows = await r.json();
+    const selected = new Set(rows.map(x=>String(x.taxi_stop_id)));
+
+    document.querySelectorAll("input[data-stop]").forEach(chk=>{
+      chk.checked = selected.has(chk.value);
     });
 
-    if (!r.ok) {
-      alert("Duraklar kaydedilemedi: " + await r.text());
-      return;
+    // mola UI
+    const btnMute=document.getElementById("btnMute");
+    const btnUnmute=document.getElementById("btnUnmute");
+    if(subRow.is_active){
+      btnMute.disabled=false; btnUnmute.disabled=true;
+    }else{
+      btnMute.disabled=true; btnUnmute.disabled=false;
     }
+  }
+
+  async function getMySubscriptionRow(){
+    // Push subscription'ı browserdan okuyup endpoint ile eşleştiriyoruz
+    if(!("serviceWorker" in navigator)) return null;
+    const reg = await navigator.serviceWorker.getRegistration("./");
+    if(!reg) return null;
+    const pushSub = await reg.pushManager.getSubscription();
+    if(!pushSub) return null;
+
+    const endpoint = pushSub.endpoint;
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/taxi_push_subscriptions?endpoint=eq.${encodeURIComponent(endpoint)}&select=id,is_active`,{
+      headers: headers(false)
+    });
+    const rows = await r.json();
+    return rows[0] || null;
+  }
+
+  async function saveStops(){
+    const subRow = await getMySubscriptionRow();
+    if(!subRow){ alert("Önce bildirim izni ver"); return; }
+
+    const selected = Array.from(document.querySelectorAll("input[data-stop]:checked")).map(x=>x.value);
+
+    // önce eski eşleşmeleri sil
+    await fetch(`${SUPABASE_URL}/rest/v1/taxi_push_stops?subscription_id=eq.${subRow.id}`,{
+      method:"DELETE",
+      headers: headers(false)
+    });
+
+    // sonra yenileri ekle
+    if(selected.length){
+      const payload = selected.map(stopId=>({ subscription_id: subRow.id, taxi_stop_id: stopId }));
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/taxi_push_stops`,{
+        method:"POST",
+        headers: headers(true),
+        body: JSON.stringify(payload)
+      });
+      if(!r.ok){ alert("Kaydedilemedi: " + await r.text()); return; }
+    }
+
     alert("Durak seçimi kaydedildi ✅");
   }
 
-  // Boot
-  (async () => {
-    await navigator.serviceWorker.register("./service-worker.js", { scope: "./" }).catch(()=>{});
-    await refresh();
-  })();
+  async function setActive(active){
+    const subRow = await getMySubscriptionRow();
+    if(!subRow){ alert("Önce bildirim izni ver"); return; }
+
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/taxi_push_subscriptions?id=eq.${subRow.id}`,{
+      method:"PATCH",
+      headers: headers(true),
+      body: JSON.stringify({ is_active: active, last_seen_at: new Date().toISOString() })
+    });
+    if(!r.ok){ alert("Güncellenemedi: " + await r.text()); return; }
+    await loadMySelectedStops();
+  }
+
+  async function refreshAll(){
+    await navigator.serviceWorker.register("./service-worker.js", { scope:"./" }).catch(()=>{});
+    await loadStops();
+    await updatePermissionUI();
+    await loadMySelectedStops();
+  }
+
+  refreshAll();
 </script>
 </body>
 </html>
