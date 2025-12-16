@@ -5,38 +5,28 @@
   <title>QR Taksi – Yönetim</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- QR + PDF -->
   <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 
   <style>
     body { font-family: Arial, sans-serif; }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-      gap: 12px;
-    }
-    .qr-card {
-      border: 1px solid #333;
-      padding: 6px;
-      text-align: center;
-      font-size: 12px;
-    }
-    .qr-card canvas {
-      display: block;
-      margin: 0 auto;
-    }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ccc; padding: 6px; font-size: 13px; }
+    th { background: #f3f3f3; }
+    button { margin-left: 6px; }
   </style>
 </head>
 <body>
 
-<h2>🚕 QR Taksi – Yönetim</h2>
+<h2>🚕 QR Taksi – Yönetim Paneli</h2>
 
 <hr>
 
-<h3>1️⃣ Taksi Durağı Ekle</h3>
+<h3>1️⃣ Taksi Durağı Ekle / Sil</h3>
 <input id="stopName" placeholder="Durak adı">
 <button onclick="createStop()">Ekle</button>
+
+<ul id="stopList"></ul>
 
 <hr>
 
@@ -47,8 +37,18 @@
 
 <hr>
 
-<h3>3️⃣ QR Kodlar</h3>
-<div id="qrList" class="grid"></div>
+<h3>3️⃣ QR Noktaları Listesi</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Durak</th>
+      <th>Direk / Nokta</th>
+      <th>Kod</th>
+    </tr>
+  </thead>
+  <tbody id="pointTable"></tbody>
+</table>
+
 <br>
 <button onclick="exportPDF()">📄 QR’ları A4 PDF indir</button>
 
@@ -59,119 +59,140 @@ const SUPABASE_ANON_KEY =
 
 let pickupPoints = [];
 
-function slug() {
-  return Math.random().toString(36).substring(2, 7).toUpperCase();
+function rand() {
+  return Math.random().toString(36).substring(2,7).toUpperCase();
 }
 
 async function createStop() {
-  const name = document.getElementById("stopName").value.trim();
+  const name = stopName.value.trim();
   if (!name) return alert("Durak adı gerekli");
 
   await fetch(`${SUPABASE_URL}/rest/v1/taxi_stops`, {
-    method: "POST",
-    headers: {
-      apikey: SUPABASE_ANON_KEY,
-      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-      "Content-Type": "application/json"
+    method:"POST",
+    headers:{
+      apikey:SUPABASE_ANON_KEY,
+      Authorization:`Bearer ${SUPABASE_ANON_KEY}`,
+      "Content-Type":"application/json"
     },
-    body: JSON.stringify({ name })
+    body:JSON.stringify({ name })
   });
 
-  document.getElementById("stopName").value = "";
+  stopName.value="";
   loadStops();
+}
+
+async function deleteStop(id) {
+  if (!confirm("Bu durağı ve tüm QR noktalarını silmek istiyor musunuz?")) return;
+
+  await fetch(`${SUPABASE_URL}/rest/v1/taxi_stops?id=eq.${id}`, {
+    method:"DELETE",
+    headers:{
+      apikey:SUPABASE_ANON_KEY,
+      Authorization:`Bearer ${SUPABASE_ANON_KEY}`
+    }
+  });
+
+  loadStops();
+  loadPoints();
 }
 
 async function loadStops() {
   const r = await fetch(`${SUPABASE_URL}/rest/v1/taxi_stops?order=created_at.asc`, {
-    headers: { apikey: SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}` }
+    headers:{apikey:SUPABASE_ANON_KEY,Authorization:`Bearer ${SUPABASE_ANON_KEY}`}
   });
   const data = await r.json();
-  const sel = document.getElementById("stopSelect");
-  sel.innerHTML = "";
-  data.forEach(s => {
-    sel.innerHTML += `<option value="${s.id}">${s.name}</option>`;
+
+  stopSelect.innerHTML="";
+  stopList.innerHTML="";
+
+  data.forEach(s=>{
+    stopSelect.innerHTML+=`<option value="${s.id}">${s.name}</option>`;
+    stopList.innerHTML+=`<li>${s.name}
+      <button onclick="deleteStop('${s.id}')">Sil</button></li>`;
   });
 }
 
 async function createPoint() {
-  const taxi_stop_id = document.getElementById("stopSelect").value;
-  const title = document.getElementById("pointTitle").value.trim();
-  if (!title) return alert("Başlık gerekli");
+  const taxi_stop_id = stopSelect.value;
+  const title = pointTitle.value.trim();
+  if (!title) return alert("Direk adı gerekli");
 
-  const code = title.replace(/\s+/g,"-").toUpperCase().substring(0,10) + "-" + slug();
+  const code = title.replace(/\s+/g,"-").toUpperCase().substring(0,10)+"-"+rand();
 
-  await fetch(`${SUPABASE_URL}/rest/v1/pickup_points`, {
-    method: "POST",
-    headers: {
-      apikey: SUPABASE_ANON_KEY,
-      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-      "Content-Type": "application/json"
+  await fetch(`${SUPABASE_URL}/rest/v1/pickup_points`,{
+    method:"POST",
+    headers:{
+      apikey:SUPABASE_ANON_KEY,
+      Authorization:`Bearer ${SUPABASE_ANON_KEY}`,
+      "Content-Type":"application/json"
     },
-    body: JSON.stringify({ taxi_stop_id, title, code })
+    body:JSON.stringify({ taxi_stop_id, title, code })
   });
 
-  document.getElementById("pointTitle").value = "";
+  pointTitle.value="";
   loadPoints();
 }
 
 async function loadPoints() {
   const r = await fetch(
-    `${SUPABASE_URL}/rest/v1/pickup_points?select=code,title,taxi_stops(name)&order=created_at.desc`,
-    { headers:{apikey:SUPABASE_ANON_KEY,Authorization:`Bearer ${SUPABASE_ANON_KEY}`} }
+    `${SUPABASE_URL}/rest/v1/pickup_points?select=code,title,taxi_stops(name)&order=created_at.asc`,
+    {headers:{apikey:SUPABASE_ANON_KEY,Authorization:`Bearer ${SUPABASE_ANON_KEY}`}}
   );
   pickupPoints = await r.json();
-  renderQRs();
-}
 
-function renderQRs() {
-  const div = document.getElementById("qrList");
-  div.innerHTML = "";
-
-  pickupPoints.forEach(p => {
-    const url = `https://ciarponec.github.io/QRtaxi/yolcu.html?code=${p.code}`;
-    const card = document.createElement("div");
-    card.className = "qr-card";
-
-    const canvas = document.createElement("canvas");
-    QRCode.toCanvas(canvas, url, { width: 120 });
-
-    card.appendChild(canvas);
-    card.innerHTML += `<b>${p.title}</b><br><small>${p.taxi_stops.name}</small>`;
-    div.appendChild(card);
+  pointTable.innerHTML="";
+  pickupPoints.forEach(p=>{
+    pointTable.innerHTML+=`
+      <tr>
+        <td>${p.taxi_stops.name}</td>
+        <td>${p.title}</td>
+        <td>${p.code}</td>
+      </tr>`;
   });
 }
 
 async function exportPDF() {
   const { jsPDF } = window.jspdf;
-  const pdf = new jsPDF({ format: "a4", unit: "mm" });
+  const pdf = new jsPDF({ format:"a4", unit:"mm" });
 
-  const qrSize = 40; // 4 cm
+  const size = 40; // 4 cm
   const margin = 10;
-  const gap = 5;
+  const gap = 6;
 
-  let x = margin;
-  let y = margin;
+  let x = margin, y = margin;
 
-  for (let i = 0; i < pickupPoints.length; i++) {
+  for (let i=0;i<pickupPoints.length;i++) {
     const p = pickupPoints[i];
     const url = `https://ciarponec.github.io/QRtaxi/yolcu.html?code=${p.code}`;
-    const img = await QRCode.toDataURL(url, { width: 300 });
+    const qr = await QRCode.toDataURL(url,{width:300});
 
-    if (x + qrSize > 210 - margin) {
+    if (x + size > 210 - margin) {
       x = margin;
-      y += qrSize + 15;
+      y += size + 25;
     }
-    if (y + qrSize > 297 - margin) {
+    if (y + size > 297 - margin) {
       pdf.addPage();
       x = margin;
       y = margin;
     }
 
-    pdf.rect(x, y, qrSize, qrSize);
-    pdf.addImage(img, "PNG", x + 2, y + 2, qrSize - 4, qrSize - 4);
-    pdf.text("Taksi çağırmak için taratın", x, y + qrSize + 5, { maxWidth: qrSize });
+    // kesme çizgisi
+    pdf.setLineDash([2,2]);
+    pdf.rect(x, y, size, size+15);
+    pdf.setLineDash([]);
 
-    x += qrSize + gap;
+    pdf.addImage(qr,"PNG",x+3,y+3,size-6,size-6);
+
+    pdf.setFontSize(10);
+    pdf.text(p.taxi_stops.name, x+size/2, y+size+5, {align:"center"});
+
+    pdf.setFontSize(12);
+    pdf.text(p.title, x+size/2, y+size+10, {align:"center"});
+
+    pdf.setFontSize(9);
+    pdf.text("Taksi çağırmak için taratın", x+size/2, y+size+14, {align:"center"});
+
+    x += size + gap;
   }
 
   pdf.save("qr_taksi_a4.pdf");
