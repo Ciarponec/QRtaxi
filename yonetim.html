@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <title>QR Taksi – Yönetim</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- QR + PDF -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+</head>
+<body>
+
+<h2>🚕 QR Taksi – Yönetim Paneli</h2>
+
+<hr>
+
+<h3>1️⃣ Taksi Durağı Ekle</h3>
+<input id="stopName" placeholder="Durak adı">
+<button onclick="createStop()">Ekle</button>
+
+<hr>
+
+<h3>2️⃣ QR Noktası (Direk) Ekle</h3>
+<select id="stopSelect"></select><br><br>
+<input id="pointTitle" placeholder="Atatürk Cd 43 No">
+<input id="pointCode" placeholder="ATK-43">
+<button onclick="createPoint()">QR Noktası Ekle</button>
+
+<hr>
+
+<h3>3️⃣ QR Kodlar</h3>
+<div id="qrList"></div>
+<br>
+<button onclick="exportPDF()">📄 QR’ları PDF indir</button>
+
+<script>
+const SUPABASE_URL = "https://cpkefhmqwrpjrwyvudky.supabase.co";
+const SUPABASE_ANON_KEY =
+"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwa2VmaG1xd3JwanJ3eXZ1ZGt5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU4Nzc2NjQsImV4cCI6MjA4MTQ1MzY2NH0.HhODIa99Wic-xYXa9Scg-vj7t-dERDKwskF8shfZfQk";
+
+let pickupPoints = [];
+
+async function createStop() {
+  const name = document.getElementById("stopName").value.trim();
+  if (!name) return alert("Durak adı gerekli");
+
+  await fetch(`${SUPABASE_URL}/rest/v1/taxi_stops`, {
+    method: "POST",
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ name })
+  });
+
+  document.getElementById("stopName").value = "";
+  loadStops();
+}
+
+async function loadStops() {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/taxi_stops?order=created_at.asc`, {
+    headers: { apikey: SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}` }
+  });
+  const data = await r.json();
+  const sel = document.getElementById("stopSelect");
+  sel.innerHTML = "";
+  data.forEach(s => {
+    sel.innerHTML += `<option value="${s.id}">${s.name}</option>`;
+  });
+}
+
+async function createPoint() {
+  const taxi_stop_id = document.getElementById("stopSelect").value;
+  const title = document.getElementById("pointTitle").value.trim();
+  const code = document.getElementById("pointCode").value.trim();
+
+  if (!title || !code) return alert("Başlık ve kod gerekli");
+
+  await fetch(`${SUPABASE_URL}/rest/v1/pickup_points`, {
+    method: "POST",
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ taxi_stop_id, title, code })
+  });
+
+  document.getElementById("pointTitle").value = "";
+  document.getElementById("pointCode").value = "";
+  loadPoints();
+}
+
+async function loadPoints() {
+  const r = await fetch(
+    `${SUPABASE_URL}/rest/v1/pickup_points?select=code,title,taxi_stops(name)&order=created_at.desc`,
+    { headers:{apikey:SUPABASE_ANON_KEY,Authorization:`Bearer ${SUPABASE_ANON_KEY}`} }
+  );
+  pickupPoints = await r.json();
+  renderQRs();
+}
+
+function renderQRs() {
+  const div = document.getElementById("qrList");
+  div.innerHTML = "";
+
+  pickupPoints.forEach(p => {
+    const url = `https://ciarponec.github.io/QRtaxi/yolcu.html?code=${p.code}`;
+    const canvas = document.createElement("canvas");
+    QRCode.toCanvas(canvas, url, { width: 160 });
+
+    div.appendChild(canvas);
+    div.innerHTML += `<div><b>${p.title}</b><br>${p.taxi_stops.name}</div><hr>`;
+  });
+}
+
+async function exportPDF() {
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF();
+
+  let y = 10;
+
+  for (let i = 0; i < pickupPoints.length; i++) {
+    const p = pickupPoints[i];
+    const url = `https://ciarponec.github.io/QRtaxi/yolcu.html?code=${p.code}`;
+    const dataUrl = await QRCode.toDataURL(url);
+
+    if (i > 0) pdf.addPage();
+
+    pdf.text(p.taxi_stops.name, 10, y);
+    pdf.text(p.title, 10, y + 10);
+    pdf.addImage(dataUrl, "PNG", 10, y + 20, 80, 80);
+    pdf.text(`QR okut → Taksi çağır`, 10, y + 110);
+  }
+
+  pdf.save("qr_taksi_direkler.pdf");
+}
+
+loadStops();
+loadPoints();
+</script>
+
+</body>
+</html>
