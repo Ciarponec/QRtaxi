@@ -2,76 +2,84 @@
 <html lang="tr">
 <head>
   <meta charset="UTF-8" />
-  <title>Taksi Çağrıları</title>
+  <title>Taksi Paneli</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 </head>
 <body>
-  <h2>📍 Bekleyen Yolcular</h2>
-  <div id="list"></div>
 
-  <script>
-    const SUPABASE_URL = "https://cpkefhmqwrpjrwyvudky.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwa2VmaG1xd3JwanJ3eXZ1ZGt5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU4Nzc2NjQsImV4cCI6MjA4MTQ1MzY2NH0.HhODIa99Wic-xYXa9Scg-vj7t-dERDKwskF8shfZfQk";
+<h2>📍 Bekleyen Taksi Çağrıları</h2>
+<div id="list"></div>
 
-    async function loadRequests() {
-      const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/ride_requests?status=eq.waiting&order=created_at.asc`,
-        {
-          headers: {
-            "apikey": SUPABASE_ANON_KEY,
-            "Authorization": `Bearer ${SUPABASE_ANON_KEY}`
-          }
-        }
-      );
+<script>
+const SUPABASE_URL = "https://cpkefhmqwrpjrwyvudky.supabase.co";
+const SUPABASE_ANON_KEY =
+"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwa2VmaG1xd3JwanJ3eXZ1ZGt5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU4Nzc2NjQsImV4cCI6MjA4MTQ1MzY2NH0.HhODIa99Wic-xYXa9Scg-vj7t-dERDKwskF8shfZfQk";
 
-      const data = await res.json();
-      const list = document.getElementById("list");
-      list.innerHTML = "";
-
-      data.forEach(r => {
-        const div = document.createElement("div");
-        div.style.border = "1px solid #ccc";
-        div.style.padding = "10px";
-        div.style.marginBottom = "8px";
-
-        div.innerHTML = `
-          <b>Lokasyon:</b> ${r.location_id}<br/>
-          <button onclick="accept('${r.id}', '${r.phone}')">
-            Bu çağrıyı al
-          </button>
-        `;
-
-        list.appendChild(div);
-      });
+function loadRequests() {
+  fetch(`${SUPABASE_URL}/rest/v1/ride_requests?status=eq.waiting&order=created_at.asc`, {
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${SUPABASE_ANON_KEY}`
     }
+  })
+  .then(r => r.json())
+  .then(data => {
+    const list = document.getElementById("list");
+    list.innerHTML = "";
 
-    async function accept(id, phone) {
-      const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/ride_requests?id=eq.${id}&status=eq.waiting`,
-        {
-          method: "PATCH",
-          headers: {
-            "apikey": SUPABASE_ANON_KEY,
-            "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            status: "accepted",
-            accepted_at: new Date().toISOString()
-          })
-        }
-      );
+    data.forEach(r => {
+      list.innerHTML += `
+        <div style="border:1px solid #ccc; padding:10px; margin-bottom:8px;">
+          <b>${r.location_title}</b><br><br>
+          <button onclick="accept('${r.id}',3,'${r.phone}')">3 dk</button>
+          <button onclick="accept('${r.id}',5,'${r.phone}')">5 dk</button>
+          <button onclick="accept('${r.id}',7,'${r.phone}')">7 dk</button>
+          <button onclick="accept('${r.id}',10,'${r.phone}')">10 dk</button>
+        </div>
+      `;
+    });
+  });
+}
 
-      if (res.ok) {
-        alert("Çağrı alındı");
-        window.location.href = `tel:${phone}`;
-      } else {
-        alert("Geç kalındı, çağrı alınmış olabilir.");
-      }
+function accept(id, eta, phone) {
+  fetch(`${SUPABASE_URL}/rest/v1/ride_requests?id=eq.${id}&status=eq.waiting`, {
+    method: "PATCH",
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      status: "accepted",
+      eta_minutes: eta,
+      accepted_at: new Date().toISOString()
+    })
+  })
+  .then(res => {
+    if (res.ok) {
+      window.location.href = `tel:${phone}`;
     }
+  });
+}
 
-    loadRequests();
-    setInterval(loadRequests, 5000);
-  </script>
+function cancelByTaxi(id) {
+  fetch(`${SUPABASE_URL}/rest/v1/ride_requests?id=eq.${id}`, {
+    method: "PATCH",
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      status: "waiting",
+      eta_minutes: null
+    })
+  });
+}
+
+loadRequests();
+setInterval(loadRequests, 5000);
+</script>
+
 </body>
 </html>
