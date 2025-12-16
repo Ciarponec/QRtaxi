@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <title>QR Taksi Çağır</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+</head>
+<body>
+  <h2>🚕 Taksi Çağır</h2>
+
+  <p>
+    Telefon numaranız yalnızca bu çağrı için taksiyle paylaşılır
+    ve işlem sonrası silinir.
+  </p>
+
+  <input
+    type="tel"
+    id="phone"
+    placeholder="05xxxxxxxxx"
+    style="font-size:18px; padding:8px; width:100%;"
+  />
+
+  <button onclick="confirmCall()" style="margin-top:12px; font-size:18px;">
+    Taksi Çağır
+  </button>
+
+  <script>
+    const SUPABASE_URL = "https://XXXX.supabase.co";
+    const SUPABASE_ANON_KEY = "PUBLIC_ANON_KEY";
+    const LOCATION_ID = "43"; // QR’a göre değiştir
+
+    function confirmCall() {
+      const phone = document.getElementById("phone").value.trim();
+
+      if (!phone) {
+        alert("Telefon numarası gerekli");
+        return;
+      }
+
+      if (!confirm(`Taksi çağrısı gönderilecek.\nTelefon: ${phone}`)) {
+        return;
+      }
+
+      fetch(`${SUPABASE_URL}/rest/v1/ride_requests`, {
+        method: "POST",
+        headers: {
+          "apikey": SUPABASE_ANON_KEY,
+          "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+          "Content-Type": "application/json",
+          "Prefer": "return=minimal"
+        },
+        body: JSON.stringify({
+          location_id: LOCATION_ID,
+          phone: phone,
+          status: "waiting"
+        })
+      }).then(res => {
+        if (res.ok) {
+          alert("Taksi çağrıldı. Lütfen bekleyin.");
+        } else {
+          alert("Bir hata oluştu.");
+        }
+      });
+    }
+  </script>
+</body>
+</html>
